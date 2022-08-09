@@ -12,4 +12,5 @@
 
 - App can switch to and from the forward facing camera & user facing camera
 
-![img](./assets/MVP.png)# family-album
+![img](./assets/MVP.png)
+# family-album
