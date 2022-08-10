@@ -1,95 +1,103 @@
-import React, { useState, useEffect } from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import MVP from './assets/MVP.png';
-import { Camera, CameraType } from 'expo-camera';
+import React, { useState, useEffect, useRef } from 'react';
+import { StatusBar } from 'expo-status-bar';
+import { StyleSheet, Button, View, SafeAreaView, Text, Image } from 'react-native';
+import { Camera } from 'expo-camera';
+import { shareAsync } from 'expo-sharing'
+import * as MediaLibrary from 'expo-media-library';
 
 export default function App() {
-  const [hasPermission, setHasPermission] = useState(null);
-  const [type, setType] = useState(CameraType.back);
+  let cameraRef = useRef();
+  const [hasCameraPermission, setHasCameraPermission] = useState();
+  const [hasMediaLibraryPermission, setHasMediaLibraryPermission] = useState();
+  const [photo, setPhoto] = useState();
 
   useEffect(() => {
     (async () => {
-      const { status } = await Camera.requestCameraPermissionsAsync();
-      setHasPermission(status === 'granted');
+      const cameraPermission = await Camera.requestCameraPermissionsAsync();
+      console.log('I am here', cameraPermission)
+      const mediaLibraryPermission = await MediaLibrary.requestPermissionsAsync();
+      
+      setHasCameraPermission(cameraPermission.status === 'granted');
+      setHasMediaLibraryPermission(mediaLibraryPermission.status === 'granted');
     })();
   }, []);
-  if (hasPermission === null) {
-    return <View />;
+
+  if (hasCameraPermission === undefined) {
+    return <Text>Requesting Permissions</Text>
+  } else if (!hasCameraPermission) {
+    return <Text>Permission for camera use has not been granted. Please change this in the settings.</Text>
+  } 
+
+  let takePic = async () => {
+    let options = {
+      quality: 1,
+      base64: true,
+      exif: false,
+    };
+
+    let newPhoto = await cameraRef.current.takePictureAsync(options);
+    setPhoto(newPhoto);
   }
-  if (hasPermission === false) {
-    return <Text>No access to camera</Text>;
+
+  if (photo) {
+    let sharePic = () => {
+      shareAsync(photo.uri).then(() => {
+        setPhoto(undefined);
+      })
+    };
+    let savePhoto = () => {
+      MediaLibrary.saveToLibraryAsync(photo.uri).then(() => {
+        setPhoto(undefined);
+      })
+    };
+    return(
+      <SafeAreaView style={styles.container}>
+        <Image style={styles.preview} source={{ uri: "data:image/jpg;base64," + photo.base64 }}>
+        </Image>
+          <Button title='Share' onPress={sharePic} Button={hasMediaLibraryPermission 
+            ? <Button title='' onPress={savePhoto}/> : undefined }/>
+          <Button title='Delete' onPress={() => setPhoto(undefined)}/>
+      </SafeAreaView>
+    );
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.topText}>
-        Family Album
-      </Text>
-      <Camera style={styles.camera} type={type}>
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity
-            style={styles.button}
-            onPress={() => {
-              setType(type === CameraType.back ? CameraType.front : CameraType.back);
-            }}>
-            <Text style={styles.text}> 
-              flip the cam 
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </Camera>
-      <Image source={MVP} style={styles.mvp} />
-      <Text style={styles.instructions}>
-        To add a photo to this page click the button below!
-      </Text>
-      <TouchableOpacity
-        onPress={() => () => {
-          camera.open();
-        }}
-        style={styles.button}>
-        <Text style={styles.buttonText}>
-          Take a Picture
-        </Text>
-      </TouchableOpacity>
-    </View>
+    <Camera style={styles.container} ref={cameraRef}>
+      <View
+        style={styles.buttonContaier}
+      >
+        <Button 
+          style= {styles.buttonText}
+          title="Take Photo"
+          onPress={takePic}
+        >
+        </Button>
+      </View>
+    </Camera>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'tan',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingTop: 500,
+    color: 'cyan',
   },
-  topText: {
-    fontSize: 18,
-    marginBottom: 20,
-    fontWeight: 'bold',
-    color: 'white'
-  },
-  mvp: {
-    width: '100%',
-    height: 350,
-    marginBottom: 10,
-  },
-  instructions: {
-    color: 'purple',
-    fontSize: 18,
-    borderColor: 'green',
-    borderWidth: 2,
-    marginBottom: 150,
-  },
-  button: {
+  buttonContaier: {
     backgroundColor: 'navy',
-    padding: 20,
-    borderRadius: 20,
+    color: 'cyan',
+    //paddingBottom: 0,
+    borderRadius: 50,
   },
   buttonText: {
     color: 'cyan',
-    fontSize: '20'
   },
-});
-
-
+  preview: {
+    alignSelf: 'stretch',
+    flex: 1,
+    color: 'cyan',
+  }
+})
 
